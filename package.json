@@ -1,0 +1,28 @@
+{
+  "name": "signalk-whisper",
+  "version": "0.0.1",
+  "description": "Wyoming Whisper speech-to-text (STT) service for Signal K. Pre-release placeholder.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "wyoming",
+    "whisper",
+    "speech-to-text",
+    "stt",
+    "voice",
+    "marine"
+  ],
+  "author": "hoeken",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoeken/signalk-whisper.git"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
