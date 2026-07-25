@@ -126,7 +126,7 @@ marina-wifi hardening recipe).
 ## Development
 
 ```sh
-npm install --install-links   # copies the local signalk-wyoming devDep
+npm install
 npm run build                 # tsc → dist/
 npm test                      # typecheck + vitest (mock Wyoming server, fake container manager)
 npm run ci-lint               # eslint + prettier --check
@@ -134,13 +134,9 @@ npm run format                # prettier + eslint --fix
 ```
 
 Tests run against the scriptable `MockWyomingServer` from the
-`signalk-wyoming` package's `signalk-wyoming/mock` export and a fake
-`signalk-container` manager — no docker/podman or network access needed.
-Until `signalk-wyoming` is published to npm, that devDependency is a
-`file:../signalk-wyoming` link (install with `npm install --install-links`
-next to a checkout of
-[hoeken/signalk-wyoming](https://github.com/hoeken/signalk-wyoming)); it
-will switch to a semver range at first publish.
+[signalk-wyoming](https://github.com/hoeken/signalk-wyoming) package's
+`signalk-wyoming/mock` export and a fake `signalk-container` manager —
+no docker/podman or network access needed.
 
 Production code has **no** runtime dependency on the orchestrator package:
 the Wyoming `describe` handshake is a ~140-line embedded client
