@@ -1,30 +1,38 @@
 # signalk-whisper
 
-> **Status: ALPHA** This SignalK Wyoming system is 100% vibecoded slop. I don't have the right hardware yet to test it, so I'm putting it out there for people to test in the meantime. It _should_ work. File issues for anything that doestn.
+> **Status: ALPHA.** This SignalK Wyoming system is 100% vibecoded slop. I
+> don't have the right hardware yet to test it, so I'm putting it out there
+> for people to test in the meantime. It _should_ work. File issues for
+> anything that doesn't.
 
-Whisper speech-to-text for Signal K, speaking the [Wyoming
-protocol](https://github.com/rhasspy/wyoming). The plugin runs the
-[`rhasspy/wyoming-whisper`](https://hub.docker.com/r/rhasspy/wyoming-whisper)
-image in a container managed through
-[signalk-container](https://www.npmjs.com/package/signalk-container), waits
-until the service actually answers a Wyoming `describe` request, keeps
-health-checking it, and advertises it on the shared `wyoming-service`
-discovery channel. It is the STT (ASR) building block of the
+## What is this?
+
+Whisper speech-to-text for [Signal K](https://signalk.org) — it gives your
+boat server "ears". The plugin runs the
+[Whisper](https://github.com/rhasspy/wyoming-faster-whisper) speech
+recognizer as a background service and takes care of everything around it:
+starting it in a container (via the
+[signalk-container](https://www.npmjs.com/package/signalk-container)
+plugin), downloading the speech model, checking that it stays healthy, and
+telling the rest of the voice stack where to find it. You never have to
+touch docker or podman yourself.
+
+It is the speech-to-text (STT) building block of the
 [signalk-wyoming voice-assistant family](https://github.com/hoeken/signalk-wyoming)
 — install it together with the `signalk-wyoming` orchestrator to get voice
-commands on your boat — but it works equally well as a standalone Wyoming
-STT server for other consumers (e.g. Home Assistant).
+commands on your boat. Because it speaks the standard
+[Wyoming protocol](https://github.com/rhasspy/wyoming), it also works as a
+standalone speech-to-text server for other software such as Home Assistant.
 
 ## Requirements
 
 - Signal K server ≥ 2.x on **Node 24+**
 - The **signalk-container** plugin with a working podman or docker runtime
-  (this plugin declares `"signalk": { "requires": ["signalk-container"] }`)
 - RAM for the model: the default `tiny-int8` uses roughly **400–500 MB
   resident** (`base-int8` ≈ 700 MB). The container is capped at 1 GB by
-  default so a misbehaving model cannot OOM the boat server. A TTS-only
-  voice install does not need this plugin at all; the full voice stack with
-  whisper is comfortable on a Pi 4/5 with 4 GB.
+  default so a misbehaving model cannot starve the boat server. The full
+  voice stack with whisper is comfortable on a Pi 4/5 with 4 GB. (A
+  TTS-only voice install does not need this plugin at all.)
 
 ## Install
 
@@ -41,18 +49,21 @@ below — with inline warnings if you pick a heavyweight model or open the
 service to the network. On servers without custom-panel support you get a
 plain settings form with the same options.
 
-| Setting                  | Default            | Notes                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model`                  | `tiny-int8`        | One of `tiny-int8`, `base-int8`, `small-int8`, `medium-int8`, `tiny`, `tiny.en`, `base`, `base.en`, `small`, `small.en`, `medium.en`, `turbo`. int8 models are recommended (smaller + faster on CPU). `auto` is deliberately **not** offered: with this image it can silently switch to a ~0.6 B-parameter sherpa/Parakeet backend and download hundreds of MB. |
-| `language`               | `en`               | Explicit language code. `auto` enables per-utterance detection but costs speed **and** accuracy on the small models — set it explicitly if you can.                                                                                                                                                                                                             |
-| `initialPrompt`          | nautical word list | Passed as `--initial-prompt` to bias recognition toward your vocabulary — the cheapest accuracy win available. See below. Empty disables it.                                                                                                                                                                                                                    |
-| `imageTag`               | `auto`             | `auto` runs the pinned, tested upstream release (**3.5.0**) and follows plugin updates. Set an explicit tag to pin something else.                                                                                                                                                                                                                              |
-| `port`                   | `10300`            | Host TCP port — only used with `bind: 0.0.0.0`, where the service is published on exactly this port. With the default loopback networking the setting is ignored: signalk-container assigns the host port automatically (10300, or the next free port if that is taken).                                                                                        |
-| `advanced.bind`          | `127.0.0.1`        | `127.0.0.1` keeps whisper local to the boat server (recommended — the orchestrator is its only intended consumer). `0.0.0.0` publishes it on all interfaces, e.g. to share it with Home Assistant. See Security.                                                                                                                                                |
-| `advanced.memoryLimit`   | `1g`               | Hard container memory cap (swap capped to the same value).                                                                                                                                                                                                                                                                                                      |
-| `advanced.restartPolicy` | `unless-stopped`   | Container runtime restart policy.                                                                                                                                                                                                                                                                                                                               |
+| Setting                  | Default            | Notes                                                                                                                                                                                                                         |
+| ------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`                  | `tiny-int8`        | One of `tiny-int8`, `base-int8`, `small-int8`, `medium-int8`, `tiny`, `tiny.en`, `base`, `base.en`, `small`, `small.en`, `medium.en`, `turbo`. int8 models are recommended (smaller + faster on CPU). See "Choosing a model". |
+| `language`               | `en`               | Explicit language code. `auto` enables per-utterance detection but costs speed **and** accuracy on the small models — set it explicitly if you can.                                                                           |
+| `initialPrompt`          | nautical word list | A list of words that biases recognition toward your vocabulary — the cheapest accuracy win available. See "The initial prompt". Empty disables it.                                                                            |
+| `imageTag`               | `auto`             | `auto` runs the pinned, tested upstream release (**3.5.0**) and follows plugin updates. Set an explicit tag to pin something else.                                                                                            |
+| `port`                   | `10300`            | Host TCP port — only used with `bind: 0.0.0.0`, where the service is published on exactly this port. With the default loopback networking the setting is ignored and a host port is assigned automatically.                   |
+| `advanced.bind`          | `127.0.0.1`        | `127.0.0.1` keeps whisper local to the boat server (recommended — the orchestrator is its only intended consumer). `0.0.0.0` publishes it on all interfaces, e.g. to share it with Home Assistant. See Security.              |
+| `advanced.memoryLimit`   | `1g`               | Hard container memory cap (swap capped to the same value).                                                                                                                                                                    |
+| `advanced.restartPolicy` | `unless-stopped`   | Container runtime restart policy.                                                                                                                                                                                             |
 
 ### Choosing a model
+
+Bigger models transcribe more accurately but need more RAM and take longer
+per utterance.
 
 | Model                                   | Download       | Resident RAM | When                                                                         |
 | --------------------------------------- | -------------- | ------------ | ---------------------------------------------------------------------------- |
@@ -64,6 +75,10 @@ plain settings form with the same options.
 Transcription latency is the practical constraint: the signalk-wyoming
 webapp's **Test screen** shows a per-transcription latency figure — use it
 to decide whether your hardware can afford a bigger model.
+
+(A model setting of `auto` is deliberately **not** offered: with this
+service it can silently switch to a much larger non-Whisper backend and
+download hundreds of MB.)
 
 ### The initial prompt
 
@@ -80,47 +95,48 @@ Customize it with words Whisper would otherwise mis-hear, for example:
 - **local place and port names** ("Port Townsend, Deception Pass, Anacortes"),
 - **boat-specific gear** ("watermaker, Hydrovane, staysail, preventer").
 
-## First start & offline behavior
+## First start & offline use
 
 On first start (and after a model change) the container downloads the model
-into this plugin's Signal K data directory, mounted at `/data` — the
-download survives container recreation and image updates. The plugin status
-shows _"starting — first start downloads the model (tiny-int8 ≈ 43 MB,
-base-int8 ≈ 80 MB)"_ until the service answers; the readiness deadline is
-10 minutes to allow slow connections. **Do the first start (and any model
-change) while you have internet** — at sea with no connectivity a
-never-downloaded model cannot load, and the plugin will report the failure
-rather than sit silent.
+into this plugin's Signal K data directory — the download survives
+container recreation and image updates, so it only happens once per model.
+The plugin status shows _"starting — first start downloads the model
+(tiny-int8 ≈ 43 MB, base-int8 ≈ 80 MB)"_ until the service answers; up to
+10 minutes are allowed for slow connections.
 
-## How other software uses it
+**Do the first start (and any model change) while you have internet** — at
+sea with no connectivity a never-downloaded model cannot load, and the
+plugin will report the failure rather than sit silent.
+
+## Using it from other software
 
 Once ready, the service is a plain Wyoming STT server at
 `tcp://<host>:<port>` (normally `tcp://127.0.0.1:10300`):
 
-- **signalk-wyoming** discovers it automatically: the plugin emits
-  `{ plugin: "signalk-whisper", type: "asr", uri, status }` on the
-  `wyoming-service` PropertyValues channel on every status change.
+- **signalk-wyoming** discovers it automatically — nothing to configure.
 - **Home Assistant** (or any other Wyoming client) can use it as an STT
   provider: set `advanced.bind` to `0.0.0.0` and point HA's Wyoming
   integration at `tcp://<boat-ip>:10300`.
 
-Status endpoint (any authenticated user):
-`GET /plugins/signalk-whisper/api/status` →
-`{ status, uri, tag, containerState, lastHealth, info }`. Admins can check
-and apply image updates via `GET /plugins/signalk-whisper/api/update/check`
-and `POST /plugins/signalk-whisper/api/update/apply`.
+## HTTP API
+
+| Endpoint                                         | Access                 | Purpose                                                                                        |
+| ------------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `GET /plugins/signalk-whisper/api/status`        | any authenticated user | Current state: `{ status, uri, tag, containerState, lastHealth, info }`                        |
+| `GET /plugins/signalk-whisper/api/versions`      | any authenticated user | Available image versions from Docker Hub (feeds the config panel; works while plugin disabled) |
+| `GET /plugins/signalk-whisper/api/update/check`  | admin                  | Check whether a newer image is available                                                       |
+| `POST /plugins/signalk-whisper/api/update/apply` | admin                  | Pull and switch to the newer image                                                             |
 
 ## Health & notifications
 
-After startup the plugin sends a Wyoming `describe` ping every 30 s. Three
-consecutive failures raise the Signal K notification
-**`notifications.voice.whisper`** with `state: "alarm"` (method `visual`
-only — deliberately not `sound`, so notification-to-speech bridges don't
-try to _speak_ the voice stack's own failure), set a plugin error, and mark
-the service `error` on `wyoming-service`. When the service answers again
-everything clears back to `ready`/`normal` automatically. Status flapping
-is debounced (≥ 500 ms between emissions) and pathological churn is logged
-instead of emitted.
+The plugin checks the service every 30 seconds. If it stops answering,
+after three consecutive failures (about 90 seconds) it raises the Signal K
+notification **`notifications.voice.whisper`** with `state: "alarm"` and
+shows an error in Plugin Config. When the service answers again everything
+clears back to normal automatically — no action needed.
+
+The alarm is visual-only by design: plugins that read notifications aloud
+won't try to _speak_ the voice stack's own failure.
 
 ## Security
 
@@ -134,22 +150,8 @@ marina-wifi hardening recipe).
 
 ## Development
 
-```sh
-npm install
-npm run build                 # tsc → dist/
-npm test                      # typecheck + vitest (mock Wyoming server, fake container manager)
-npm run ci-lint               # eslint + prettier --check
-npm run format                # prettier + eslint --fix
-```
-
-Tests run against the scriptable `MockWyomingServer` from the
-[signalk-wyoming](https://github.com/hoeken/signalk-wyoming) package's
-`signalk-wyoming/mock` export and a fake `signalk-container` manager —
-no docker/podman or network access needed.
-
-Production code has **no** runtime dependency on the orchestrator package:
-the Wyoming `describe` handshake is a ~140-line embedded client
-(`src/wyoming.ts`).
+See [DEVELOPERS.md](DEVELOPERS.md) for the code layout, build/test
+commands, architecture notes, and the service-discovery contract.
 
 ## License
 
