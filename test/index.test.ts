@@ -38,15 +38,21 @@ function makeRouter() {
 }
 
 function makeRes() {
+  let resolveDone!: () => void;
   const res = {
     statusCode: 200,
     body: undefined as unknown,
+    /** Resolves on json() — /api/versions answers from a detached async. */
+    done: new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    }),
     status(code: number) {
       res.statusCode = code;
       return res;
     },
     json(body: unknown) {
       res.body = body;
+      resolveDone();
       return res;
     },
   };
@@ -91,11 +97,67 @@ describe("plugin factory", () => {
         "GET /api/update/check",
         "POST /api/update/apply",
         "GET /api/status",
+        "GET /api/versions",
       ]),
     );
     expect(router.routes.get("GET /api/status")!.access).toBe("readonly");
+    expect(router.routes.get("GET /api/versions")!.access).toBe("readonly");
     // update routes stay admin-only (no access registrar call)
     expect(router.routes.get("GET /api/update/check")!.access).toBeNull();
+  });
+
+  it("serves /api/versions (unguarded) with semver-sorted Docker Hub tags", async () => {
+    const plugin = createPlugin(asServerApi(makeApp()));
+    const router = makeRouter();
+    plugin.registerWithRouter!(router as any);
+
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [
+          { name: "latest" },
+          { name: "3.5.0" },
+          { name: "3.10.2" },
+          { name: "3.5.1" },
+          { name: "master" },
+          { name: 7 },
+        ],
+      }),
+    }));
+    try {
+      // The plugin was never started: the versions feed must answer while
+      // the plugin is disabled so the config panel can populate its
+      // dropdown before the operator enables the plugin.
+      const res = makeRes();
+      await router.routes.get("GET /api/versions")!.handler({}, res);
+      await res.done;
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({
+        versions: [{ tag: "3.10.2" }, { tag: "3.5.1" }, { tag: "3.5.0" }],
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("answers 502 from /api/versions when Docker Hub is unreachable", async () => {
+    const plugin = createPlugin(asServerApi(makeApp()));
+    const router = makeRouter();
+    plugin.registerWithRouter!(router as any);
+
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("network down");
+    });
+    try {
+      const res = makeRes();
+      await router.routes.get("GET /api/versions")!.handler({}, res);
+      await res.done;
+      expect(res.statusCode).toBe(502);
+      expect(res.body).toEqual({ error: "network down" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("guards routes with the running flag (503 when stopped)", async () => {

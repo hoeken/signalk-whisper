@@ -1,3 +1,9 @@
+# v0.2.0
+
+- **New graphical configuration panel.** Server → Plugin Config → Whisper STT now shows a real panel instead of the bare settings form: a live status card for the service and its container, a one-click image update check/apply, a version dropdown listing the available `rhasspy/wyoming-whisper` releases from Docker Hub, and all the usual settings — with inline warnings if you pick a heavyweight model or open the service to the whole network. On servers without custom-panel support, the plain settings form remains and works exactly as before.
+- **Pick a version before enabling.** The version dropdown works even while the plugin is disabled (new readonly `GET /api/versions` route). If Docker Hub is unreachable — say, offshore — the panel keeps the last list it saw.
+- Now requires signalk-container-helper 0.2.1 or later (installed automatically with the plugin).
+
 # v0.1.0
 
 Initial release: Whisper speech-to-text (Wyoming protocol) for Signal K. Runs the `rhasspy/wyoming-whisper` image in a container managed through signalk-container — the STT building block of the signalk-wyoming voice-assistant family, also usable as a standalone Wyoming STT server (e.g. for Home Assistant).

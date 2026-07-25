@@ -34,6 +34,13 @@ enable the signalk-container plugin if you have not already.
 
 ## Configuration
 
+The plugin ships a graphical configuration panel (Server → Plugin Config →
+Whisper STT) with a live container status card, a one-click image update
+check/apply, a version dropdown fed by Docker Hub, and all the settings
+below — with inline warnings if you pick a heavyweight model or open the
+service to the network. On servers without custom-panel support you get a
+plain settings form with the same options.
+
 | Setting                  | Default            | Notes                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `model`                  | `tiny-int8`        | One of `tiny-int8`, `base-int8`, `small-int8`, `medium-int8`, `tiny`, `tiny.en`, `base`, `base.en`, `small`, `small.en`, `medium.en`, `turbo`. int8 models are recommended (smaller + faster on CPU). `auto` is deliberately **not** offered: with this image it can silently switch to a ~0.6 B-parameter sherpa/Parakeet backend and download hundreds of MB. |

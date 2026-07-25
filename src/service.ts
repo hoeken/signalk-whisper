@@ -25,6 +25,7 @@ import {
   defaultSettings,
   DOWNLOAD_HINT,
   IMAGE,
+  isSemverTag,
   NOTIFICATION_PATH,
   PLUGIN_ID,
   resolveTag,
@@ -338,9 +339,9 @@ export class ServiceRunner {
       buildConfig: (tag) => buildContainerConfig(this.settings, tag),
       updates: {
         versionSource: {
-          dockerHubTags: IMAGE,
           // Numeric semver tags only (drop latest/branch tags).
-          filter: (tag) => /^\d+\.\d+\.\d+$/.test(tag),
+          dockerHubTags: IMAGE,
+          filter: isSemverTag,
         },
       },
       ensureOptions: {

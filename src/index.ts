@@ -9,10 +9,16 @@
  */
 
 import type { Plugin, ServerAPI } from "@signalk/server-api";
-import { errMsg, type RouterLike } from "signalk-container-helper";
+import {
+  errMsg,
+  fetchWithTimeout,
+  type RouterLike,
+} from "signalk-container-helper";
 import {
   applyDefaults,
   CONFIG_SCHEMA,
+  IMAGE,
+  isSemverTag,
   PLUGIN_ID,
   UI_SCHEMA,
 } from "./config.js";
@@ -33,6 +39,19 @@ interface PluginRouter {
   post(path: string, handler: Handler): unknown;
   /** Permission registrar (Signal K ≥ 2.x); feature-detect. */
   access?(level: "readonly" | "readwrite"): PluginRouter;
+}
+
+const TAGS_URL = `https://hub.docker.com/v2/repositories/${IMAGE}/tags/?page_size=25`;
+
+/** Numeric-descending compare for the plain x.y.z tags isSemverTag admits. */
+function compareSemverDesc(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const d = (pb[i] ?? 0) - (pa[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
 }
 
 export default function createPlugin(app: ServerAPI): Plugin {
@@ -109,20 +128,57 @@ export default function createPlugin(app: ServerAPI): Plugin {
         },
       });
 
-      // GET /plugins/signalk-whisper/api/status — any authenticated user
-      // when the server supports route permissions, admin-only otherwise.
-      const statusHandler: Handler = guard(async (_req, res) => {
-        try {
-          res.json(await r.statusReport());
-        } catch (err) {
-          res.status(500).json({ error: errMsg(err) });
-        }
+      // Readonly routes — any authenticated user when the server supports
+      // route permissions, admin-only otherwise.
+      const readonlyRouter =
+        typeof pluginRouter.access === "function"
+          ? pluginRouter.access("readonly")
+          : pluginRouter;
+
+      // GET /plugins/signalk-whisper/api/status
+      readonlyRouter.get(
+        "/api/status",
+        guard(async (_req, res) => {
+          try {
+            res.json(await r.statusReport());
+          } catch (err) {
+            res.status(500).json({ error: errMsg(err) });
+          }
+        }),
+      );
+
+      // GET /plugins/signalk-whisper/api/versions — the config panel's
+      // version-dropdown feed. Deliberately NOT guarded by the running
+      // flag: the operator picks a tag while the plugin is still disabled,
+      // and the route only reaches out to Docker Hub on demand.
+      readonlyRouter.get("/api/versions", (_req, res) => {
+        void (async () => {
+          try {
+            const response = await fetchWithTimeout(TAGS_URL, {
+              timeoutMs: 10_000,
+            });
+            if (!response.ok) {
+              res
+                .status(502)
+                .json({ error: `Docker Hub answered HTTP ${response.status}` });
+              return;
+            }
+            const body = (await response.json()) as {
+              results?: { name?: unknown }[];
+            };
+            const versions = (Array.isArray(body.results) ? body.results : [])
+              .map((entry) =>
+                typeof entry?.name === "string" ? entry.name : "",
+              )
+              .filter(isSemverTag)
+              .sort(compareSemverDesc)
+              .map((tag) => ({ tag }));
+            res.json({ versions });
+          } catch (err) {
+            res.status(502).json({ error: errMsg(err) });
+          }
+        })();
       });
-      if (typeof pluginRouter.access === "function") {
-        pluginRouter.access("readonly").get("/api/status", statusHandler);
-      } else {
-        pluginRouter.get("/api/status", statusHandler);
-      }
     },
   };
 

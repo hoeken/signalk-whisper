@@ -152,6 +152,11 @@ export function resolveTag(requested: string): string {
   return requested === "auto" ? PINNED_TAG : requested;
 }
 
+/** True for plain numeric semver tags like "3.5.0" (update-check filter). */
+export function isSemverTag(tag: string): boolean {
+  return /^\d+\.\d+\.\d+$/.test(tag);
+}
+
 /**
  * Pure, deterministic settings → ContainerConfig mapping. Called on every
  * start/update; the `command` array is always present and stable so
