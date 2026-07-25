@@ -1,6 +1,4 @@
-# Changelog
-
-## v0.2.0
+# v0.2.0
 
 Nothing to reconfigure — existing settings carry over unchanged. The plugin
 now depends on signalk-container-helper 0.2.1 or later, which is installed
@@ -19,7 +17,7 @@ automatically with the update.
   Docker Hub is unreachable — say, offshore — the panel keeps showing the
   last version list it saw.
 
-## v0.1.0
+# v0.1.0
 
 Initial release: Whisper speech-to-text (Wyoming protocol) for Signal K.
 Runs the `rhasspy/wyoming-whisper` service in a container managed through
