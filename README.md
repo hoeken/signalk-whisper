@@ -1,5 +1,7 @@
 # signalk-whisper
 
+> **Status: ALPHA** This SignalK Wyoming system is 100% vibecoded slop. I don't have the right hardware yet to test it, so I'm putting it out there for people to test in the meantime. It _should_ work. File issues for anything that doestn.
+
 Whisper speech-to-text for Signal K, speaking the [Wyoming
 protocol](https://github.com/rhasspy/wyoming). The plugin runs the
 [`rhasspy/wyoming-whisper`](https://hub.docker.com/r/rhasspy/wyoming-whisper)
