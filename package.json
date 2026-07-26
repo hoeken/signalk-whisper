@@ -1,7 +1,7 @@
 {
   "name": "signalk-whisper",
   "version": "0.2.0",
-  "description": "Whisper speech-to-text (Wyoming protocol) for Signal K — runs rhasspy/wyoming-whisper in a managed container.",
+  "description": "Whisper speech-to-text as a managed container for Signal K, speaking the Wyoming protocol. Part of the signalk-wyoming voice assistant family.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,6 +54,11 @@
     "displayName": "Whisper STT (Wyoming)",
     "requires": [
       "signalk-container"
+    ],
+    "recommends": [
+      "signalk-wyoming",
+      "signalk-piper",
+      "signalk-openwakeword"
     ]
   },
   "engines": {
